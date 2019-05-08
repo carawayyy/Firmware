@@ -519,7 +519,7 @@ SF0X::collect()
 	report.current_distance = distance_m;
 	report.min_distance = get_minimum_distance();
 	report.max_distance = get_maximum_distance();
-	report.covariance = 0.0f;
+	report.variance = 0.0f;
 	report.signal_quality = -1;
 	/* TODO: set proper ID */
 	report.id = 0;
@@ -590,7 +590,19 @@ SF0X::cycle()
 		/* no parity, one stop bit */
 		uart_config.c_cflag &= ~(CSTOPB | PARENB);
 
-		unsigned speed = B9600;
+		/* if distance sensor model is SF11/C, then set baudrate 115200, else 9600 */
+		int hw_model;
+
+		param_get(param_find("SENS_EN_SF0X"), &hw_model);
+
+		unsigned speed;
+
+		if (hw_model == 5) {
+			speed = B115200;
+
+		} else {
+			speed = B9600;
+		}
 
 		/* set baud rate */
 		if ((termios_state = cfsetispeed(&uart_config, speed)) < 0) {

@@ -27,9 +27,9 @@ px4_add_board(
 		gps
 		#heater
 		imu/adis16448
+		imu/adis16497
 		#imu # all available imu drivers
 		imu/bmi055
-		imu/icm20948
 		imu/mpu6000
 		imu/mpu9250
 		irlock
@@ -54,6 +54,7 @@ px4_add_board(
 		roboclaw
 		stm32
 		stm32/adc
+		stm32/armv7-m_dcache
 		stm32/tone_alarm
 		tap_esc
 		telemetry # all available telemetry drivers
@@ -82,6 +83,7 @@ px4_add_board(
 		mc_pos_control
 		navigator
 		sensors
+		sih
 		vmount
 		vtol_att_control
 		wind_estimator
@@ -119,8 +121,8 @@ px4_add_board(
 		hwtest # Hardware test
 		#matlab_csv_serial
 		position_estimator_inav
-		px4_mavlink_debug # Tutorial code from https://px4.io/dev/debug_values
-		px4_simple_app # Tutorial code from https://px4.io/dev/px4_simple_app
+		px4_mavlink_debug # Tutorial code from http://dev.px4.io/en/debug/debug_values.html
+		px4_simple_app # Tutorial code from http://dev.px4.io/en/apps/hello_sky.html
 		rover_steering_control # Rover example app
 		segway
 		uuv_example_app

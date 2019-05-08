@@ -106,6 +106,14 @@ public:
 	virtual bool update() = 0;
 
 	/**
+	 * Call after update()
+	 * to constrain the generated setpoints in order to comply
+	 * with the constraints of the current mode
+	 * @return true on success, false on error
+	 */
+	virtual bool updateFinalize() { return true; };
+
+	/**
 	 * Get the output data
 	 * @return task output setpoints that get executed by the positon controller
 	 */
@@ -240,9 +248,9 @@ protected:
 	vehicle_trajectory_waypoint_s _desired_waypoint{};
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(ModuleParams,
-					(ParamFloat<px4::params::MPC_XY_VEL_MAX>) MPC_XY_VEL_MAX,
-					(ParamFloat<px4::params::MPC_Z_VEL_MAX_DN>) MPC_Z_VEL_MAX_DN,
-					(ParamFloat<px4::params::MPC_Z_VEL_MAX_UP>) MPC_Z_VEL_MAX_UP,
-					(ParamFloat<px4::params::MPC_TILTMAX_AIR>) MPC_TILTMAX_AIR
+					(ParamFloat<px4::params::MPC_XY_VEL_MAX>) _param_mpc_xy_vel_max,
+					(ParamFloat<px4::params::MPC_Z_VEL_MAX_DN>) _param_mpc_z_vel_max_dn,
+					(ParamFloat<px4::params::MPC_Z_VEL_MAX_UP>) _param_mpc_z_vel_max_up,
+					(ParamFloat<px4::params::MPC_TILTMAX_AIR>) _param_mpc_tiltmax_air
 				       )
 };

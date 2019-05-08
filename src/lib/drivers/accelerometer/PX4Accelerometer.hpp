@@ -72,7 +72,7 @@ private:
 	math::LowPassFilter2pVector3f _filter{1000, 100};
 	Integrator _integrator{4000, false};
 
-	const matrix::Dcmf	_rotation;
+	const enum Rotation	_rotation;
 
 	matrix::Vector3f	_calibration_scale{1.0f, 1.0f, 1.0f};
 	matrix::Vector3f	_calibration_offset{0.0f, 0.0f, 0.0f};
@@ -82,7 +82,7 @@ private:
 	unsigned	_sample_rate{1000};
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::IMU_ACCEL_CUTOFF>) _filter_cutoff
+		(ParamFloat<px4::params::IMU_ACCEL_CUTOFF>) _param_imu_accel_cutoff
 	)
 
 };

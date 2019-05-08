@@ -1,8 +1,8 @@
 /****************************************************************************
- * configs/crazyflie/scripts/ld.script
+ * configs/px4io-v2/scripts/ld.script
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,33 +33,24 @@
  *
  ****************************************************************************/
 
-/* The STM32F405RG has 1024Kb of FLASH beginning at address 0x0800:0000 and
- * 192Kb of SRAM. SRAM is split up into three blocks:
- *
- * 1) 112Kb of SRAM beginning at address 0x2000:0000
- * 2)  16Kb of SRAM beginning at address 0x2001:c000
- * 3)  64Kb of CCM SRAM beginning at address 0x1000:0000
- *
- * When booting from FLASH, FLASH memory is aliased to address 0x0000:0000
- * where the code expects to begin execution by jumping to the entry point in
- * the 0x0800:0000 address range.
- *
- * The first 0x4000 of flash is reserved for the bootloader.
+/* The STM32F100C8 has 64Kb of FLASH beginning at address 0x0800:0000 and
+ * 8Kb of SRAM beginning at address 0x2000:0000.  When booting from FLASH,
+ * FLASH memory is aliased to address 0x0000:0000 where the code expects to
+ * begin execution by jumping to the entry point in the 0x0800:0000 address
+ * range.
  */
 
 MEMORY
 {
-    flash (rx)   : ORIGIN = 0x08004000, LENGTH = 1008K
-    sram (rwx)   : ORIGIN = 0x20000000, LENGTH = 128K
-    ccsram (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
+    flash (rx) : ORIGIN = 0x08001000, LENGTH = 60K
+    sram (rwx) : ORIGIN = 0x20000000, LENGTH = 8K
 }
 
 OUTPUT_ARCH(arm)
-
 ENTRY(__start)		/* treat __start as the anchor for dead code stripping */
 EXTERN(_vectors)	/* force the vectors to be included in the output */
 
-/* 
+/*
  * Ensure that abort() is present in the final object.  The exception handling
  * code pulled in by libgcc.a requires it (and that code cannot be easily avoided).
  */
@@ -70,23 +61,17 @@ SECTIONS
 	.text : {
 		_stext = ABSOLUTE(.);
 		*(.vectors)
-		. = ALIGN(32);
-		/*
-		This signature provides the bootloader with a way to delay booting
-		*/
-		_bootdelay_signature = ABSOLUTE(.);
-		FILL(0xffecc2925d7d05c5)
-		. += 8;
 		*(.text .text.*)
 		*(.fixup)
 		*(.gnu.warning)
 		*(.rodata .rodata.*)
 		*(.gnu.linkonce.t.*)
+		*(.glue_7)
+		*(.glue_7t)
 		*(.got)
 		*(.gcc_except_table)
 		*(.gnu.linkonce.r.*)
 		_etext = ABSOLUTE(.);
-
 		/*
 		 * This is a hack to make the newlib libm __errno() call
 		 * use the NuttX get_errno_ptr() function.
@@ -103,15 +88,6 @@ SECTIONS
                 _einit = ABSOLUTE(.);
         } > flash
 
-	/*
-	 * Construction data for parameters.
-	 */
-	__param ALIGN(4): {
-		__param_start = ABSOLUTE(.);
-		KEEP(*(__param*))
-		__param_end = ABSOLUTE(.);
-	} > flash
-
 	.ARM.extab : {
 		*(.ARM.extab*)
 	} > flash
@@ -124,12 +100,15 @@ SECTIONS
 
 	_eronly = ABSOLUTE(.);
 
+	/* The STM32F100CB has 8Kb of SRAM beginning at the following address */
+
 	.data : {
 		_sdata = ABSOLUTE(.);
 		*(.data .data.*)
 		*(.gnu.linkonce.d.*)
 		CONSTRUCTORS
 		_edata = ABSOLUTE(.);
+		. = ALIGN(4);
 	} > sram AT > flash
 
 	.bss : {

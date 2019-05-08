@@ -5,6 +5,7 @@
 # TODO: find a way to keep this in sync with tests_main
 set(tests
 	autodeclination
+	bezier
 	bson
 	commander
 	controllib
@@ -16,6 +17,8 @@ set(tests
 	hrt
 	hysteresis
 	int
+	IntrusiveQueue
+	List
 	mathlib
 	matrix
 	microbench_hrt
@@ -27,6 +30,7 @@ set(tests
 	parameters
 	perf
 	rc
+	search_min
 	servo
 	sf0x
 	sleep
@@ -146,6 +150,7 @@ add_custom_target(test_results
 		DEPENDS
 			px4
 			examples__dyn_hello
+			test_mixer_multirotor
 		USES_TERMINAL
 		COMMENT "Running tests in sitl"
 		WORKING_DIRECTORY ${PX4_BINARY_DIR})

@@ -40,12 +40,14 @@
 #pragma once
 
 #include "FlightTaskManual.hpp"
+#include <uORB/topics/home_position.h>
 
 class FlightTaskManualAltitude : public FlightTaskManual
 {
 public:
 	FlightTaskManualAltitude() = default;
 	virtual ~FlightTaskManualAltitude() = default;
+	bool initializeSubscriptions(SubscriptionArray &subscription_array) override;
 	bool activate() override;
 	bool updateInitialize() override;
 	bool update() override;
@@ -68,12 +70,18 @@ protected:
 	void _updateAltitudeLock();
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskManual,
-					(ParamFloat<px4::params::MPC_HOLD_MAX_Z>) MPC_HOLD_MAX_Z,
-					(ParamInt<px4::params::MPC_ALT_MODE>) MPC_ALT_MODE,
-					(ParamFloat<px4::params::MPC_HOLD_MAX_XY>) MPC_HOLD_MAX_XY,
-					(ParamFloat<px4::params::MPC_Z_P>) MPC_Z_P, /**< position controller altitude propotional gain */
-					(ParamFloat<px4::params::MPC_MAN_Y_MAX>) MPC_MAN_Y_MAX, /**< scaling factor from stick to yaw rate */
-					(ParamFloat<px4::params::MPC_MAN_TILT_MAX>) MPC_MAN_TILT_MAX /**< maximum tilt allowed for manual flight */
+					(ParamFloat<px4::params::MPC_HOLD_MAX_Z>) _param_mpc_hold_max_z,
+					(ParamInt<px4::params::MPC_ALT_MODE>) _param_mpc_alt_mode,
+					(ParamFloat<px4::params::MPC_HOLD_MAX_XY>) _param_mpc_hold_max_xy,
+					(ParamFloat<px4::params::MPC_Z_P>) _param_mpc_z_p, /**< position controller altitude propotional gain */
+					(ParamFloat<px4::params::MPC_MAN_Y_MAX>) _param_mpc_man_y_max, /**< scaling factor from stick to yaw rate */
+					(ParamFloat<px4::params::MPC_MAN_TILT_MAX>) _param_mpc_man_tilt_max, /**< maximum tilt allowed for manual flight */
+					(ParamFloat<px4::params::MPC_LAND_ALT1>) _param_mpc_land_alt1, /**< altitude at which to start downwards slowdown */
+					(ParamFloat<px4::params::MPC_LAND_ALT2>) _param_mpc_land_alt2, /**< altitude below wich to land with land speed */
+					(ParamFloat<px4::params::MPC_LAND_SPEED>)
+					_param_mpc_land_speed, /**< desired downwards speed when approaching the ground */
+					(ParamFloat<px4::params::MPC_TKO_SPEED>)
+					_param_mpc_tko_speed /**< desired upwards speed when still close to the ground */
 				       )
 private:
 	/**
@@ -95,6 +103,13 @@ private:
 
 	void _respectMaxAltitude();
 
+	/**
+	 * Sets downwards velocity constraint based on the distance to ground.
+	 * To ensure a slowdown to land speed before hitting the ground.
+	 */
+	void _respectGroundSlowdown();
+
+	uORB::Subscription<home_position_s> *_sub_home_position{nullptr};
 
 	uint8_t _reset_counter = 0; /**< counter for estimator resets in z-direction */
 	float _max_speed_up = 10.0f;

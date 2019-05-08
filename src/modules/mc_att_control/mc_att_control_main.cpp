@@ -131,64 +131,40 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 void
 MulticopterAttitudeControl::parameters_updated()
 {
-	/* Store some of the parameters in a more convenient way & precompute often-used values */
+	// Store some of the parameters in a more convenient way & precompute often-used values
+	_attitude_control.setProportionalGain(Vector3f(_param_mc_roll_p.get(), _param_mc_pitch_p.get(), _param_mc_yaw_p.get()));
 
-	/* roll gains */
-	_attitude_p(0) = _roll_p.get();
-	_rate_p(0) = _roll_rate_p.get();
-	_rate_i(0) = _roll_rate_i.get();
-	_rate_int_lim(0) = _roll_rate_integ_lim.get();
-	_rate_d(0) = _roll_rate_d.get();
-	_rate_ff(0) = _roll_rate_ff.get();
+	// rate gains
+	_rate_p = Vector3f(_param_mc_rollrate_p.get(), _param_mc_pitchrate_p.get(), _param_mc_yawrate_p.get());
+	_rate_i = Vector3f(_param_mc_rollrate_i.get(), _param_mc_pitchrate_i.get(), _param_mc_yawrate_i.get());
+	_rate_int_lim = Vector3f(_param_mc_rr_int_lim.get(), _param_mc_pr_int_lim.get(), _param_mc_yr_int_lim.get());
+	_rate_d = Vector3f(_param_mc_rollrate_d.get(), _param_mc_pitchrate_d.get(), _param_mc_yawrate_d.get());
+	_rate_ff = Vector3f(_param_mc_rollrate_ff.get(), _param_mc_pitchrate_ff.get(), _param_mc_yawrate_ff.get());
 
-	/* pitch gains */
-	_attitude_p(1) = _pitch_p.get();
-	_rate_p(1) = _pitch_rate_p.get();
-	_rate_i(1) = _pitch_rate_i.get();
-	_rate_int_lim(1) = _pitch_rate_integ_lim.get();
-	_rate_d(1) = _pitch_rate_d.get();
-	_rate_ff(1) = _pitch_rate_ff.get();
-
-	/* yaw gains */
-	_attitude_p(2) = _yaw_p.get();
-	_rate_p(2) = _yaw_rate_p.get();
-	_rate_i(2) = _yaw_rate_i.get();
-	_rate_int_lim(2) = _yaw_rate_integ_lim.get();
-	_rate_d(2) = _yaw_rate_d.get();
-	_rate_ff(2) = _yaw_rate_ff.get();
-
-	if (fabsf(_lp_filters_d.get_cutoff_freq() - _d_term_cutoff_freq.get()) > 0.01f) {
-		_lp_filters_d.set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());
+	if (fabsf(_lp_filters_d.get_cutoff_freq() - _param_mc_dterm_cutoff.get()) > 0.01f) {
+		_lp_filters_d.set_cutoff_frequency(_loop_update_rate_hz, _param_mc_dterm_cutoff.get());
 		_lp_filters_d.reset(_rates_prev);
 	}
 
-	/* angular rate limits */
-	_mc_rate_max(0) = math::radians(_roll_rate_max.get());
-	_mc_rate_max(1) = math::radians(_pitch_rate_max.get());
-	_mc_rate_max(2) = math::radians(_yaw_rate_max.get());
+	// angular rate limits
+	using math::radians;
+	_attitude_control.setRateLimit(Vector3f(radians(_param_mc_rollrate_max.get()), radians(_param_mc_pitchrate_max.get()), radians(_param_mc_yawrate_max.get())));
 
-	/* auto angular rate limits */
-	_auto_rate_max(0) = math::radians(_roll_rate_max.get());
-	_auto_rate_max(1) = math::radians(_pitch_rate_max.get());
-	_auto_rate_max(2) = math::radians(_yaw_auto_max.get());
+	// manual rate control acro mode rate limits
+	_acro_rate_max = Vector3f(radians(_param_mc_acro_r_max.get()), radians(_param_mc_acro_p_max.get()), radians(_param_mc_acro_y_max.get()));
 
-	/* manual rate control acro mode rate limits and expo */
-	_acro_rate_max(0) = math::radians(_acro_roll_max.get());
-	_acro_rate_max(1) = math::radians(_acro_pitch_max.get());
-	_acro_rate_max(2) = math::radians(_acro_yaw_max.get());
-
-	_man_tilt_max = math::radians(_man_tilt_max_deg.get());
+	_man_tilt_max = math::radians(_param_mpc_man_tilt_max.get());
 
 	_actuators_0_circuit_breaker_enabled = circuit_breaker_enabled("CBRK_RATE_CTRL", CBRK_RATE_CTRL_KEY);
 
 	/* get transformation matrix from sensor/board to body frame */
-	_board_rotation = get_rot_matrix((enum Rotation)_board_rotation_param.get());
+	_board_rotation = get_rot_matrix((enum Rotation)_param_sens_board_rot.get());
 
 	/* fine tune the rotation */
 	Dcmf board_rotation_offset(Eulerf(
-			M_DEG_TO_RAD_F * _board_offset_x.get(),
-			M_DEG_TO_RAD_F * _board_offset_y.get(),
-			M_DEG_TO_RAD_F * _board_offset_z.get()));
+			M_DEG_TO_RAD_F * _param_sens_board_x_off.get(),
+			M_DEG_TO_RAD_F * _param_sens_board_y_off.get(),
+			M_DEG_TO_RAD_F * _param_sens_board_z_off.get()));
 	_board_rotation = board_rotation_offset * _board_rotation;
 }
 
@@ -391,16 +367,16 @@ float
 MulticopterAttitudeControl::throttle_curve(float throttle_stick_input)
 {
 	// throttle_stick_input is in range [0, 1]
-	switch (_throttle_curve.get()) {
+	switch (_param_mpc_thr_curve.get()) {
 	case 1: // no rescaling to hover throttle
-		return _man_throttle_min.get() + throttle_stick_input * (_throttle_max.get() - _man_throttle_min.get());
+		return _param_mpc_manthr_min.get() + throttle_stick_input * (_param_mpc_thr_max.get() - _param_mpc_manthr_min.get());
 
 	default: // 0 or other: rescale to hover throttle at 0.5 stick
 		if (throttle_stick_input < 0.5f) {
-			return (_throttle_hover.get() - _man_throttle_min.get()) / 0.5f * throttle_stick_input + _man_throttle_min.get();
+			return (_param_mpc_thr_hover.get() - _param_mpc_manthr_min.get()) / 0.5f * throttle_stick_input + _param_mpc_manthr_min.get();
 
 		} else {
-			return (_throttle_max.get() - _throttle_hover.get()) / 0.5f * (throttle_stick_input - 1.0f) + _throttle_max.get();
+			return (_param_mpc_thr_max.get() - _param_mpc_thr_hover.get()) / 0.5f * (throttle_stick_input - 1.0f) + _param_mpc_thr_max.get();
 		}
 	}
 }
@@ -438,9 +414,9 @@ MulticopterAttitudeControl::generate_attitude_setpoint(float dt, bool reset_yaw_
 	if (reset_yaw_sp) {
 		_man_yaw_sp = yaw;
 
-	} else if (_manual_control_sp.z > 0.05f || _airmode.get() == (int32_t)Mixer::Airmode::roll_pitch_yaw) {
+	} else if (_manual_control_sp.z > 0.05f || _param_mc_airmode.get() == (int32_t)Mixer::Airmode::roll_pitch_yaw) {
 
-		const float yaw_rate = math::radians(_yaw_rate_scaling.get());
+		const float yaw_rate = math::radians(_param_mpc_man_y_max.get());
 		attitude_setpoint.yaw_sp_move_rate = _manual_control_sp.r * yaw_rate;
 		_man_yaw_sp = wrap_pi(_man_yaw_sp + attitude_setpoint.yaw_sp_move_rate * dt);
 	}
@@ -542,75 +518,7 @@ MulticopterAttitudeControl::control_attitude()
 	// physical thrust axis is the negative of body z axis
 	_thrust_sp = -_v_att_sp.thrust_body[2];
 
-	/* prepare yaw weight from the ratio between roll/pitch and yaw gains */
-	Vector3f attitude_gain = _attitude_p;
-	const float roll_pitch_gain = (attitude_gain(0) + attitude_gain(1)) / 2.f;
-	const float yaw_w = math::constrain(attitude_gain(2) / roll_pitch_gain, 0.f, 1.f);
-	attitude_gain(2) = roll_pitch_gain;
-
-	/* get estimated and desired vehicle attitude */
-	Quatf q(_v_att.q);
-	Quatf qd(_v_att_sp.q_d);
-
-	/* ensure input quaternions are exactly normalized because acosf(1.00001) == NaN */
-	q.normalize();
-	qd.normalize();
-
-	/* calculate reduced desired attitude neglecting vehicle's yaw to prioritize roll and pitch */
-	Vector3f e_z = q.dcm_z();
-	Vector3f e_z_d = qd.dcm_z();
-	Quatf qd_red(e_z, e_z_d);
-
-	if (abs(qd_red(1)) > (1.f - 1e-5f) || abs(qd_red(2)) > (1.f - 1e-5f)) {
-		/* In the infinitesimal corner case where the vehicle and thrust have the completely opposite direction,
-		 * full attitude control anyways generates no yaw input and directly takes the combination of
-		 * roll and pitch leading to the correct desired yaw. Ignoring this case would still be totally safe and stable. */
-		qd_red = qd;
-
-	} else {
-		/* transform rotation from current to desired thrust vector into a world frame reduced desired attitude */
-		qd_red *= q;
-	}
-
-	/* mix full and reduced desired attitude */
-	Quatf q_mix = qd_red.inversed() * qd;
-	q_mix *= math::signNoZero(q_mix(0));
-	/* catch numerical problems with the domain of acosf and asinf */
-	q_mix(0) = math::constrain(q_mix(0), -1.f, 1.f);
-	q_mix(3) = math::constrain(q_mix(3), -1.f, 1.f);
-	qd = qd_red * Quatf(cosf(yaw_w * acosf(q_mix(0))), 0, 0, sinf(yaw_w * asinf(q_mix(3))));
-
-	/* quaternion attitude control law, qe is rotation from q to qd */
-	Quatf qe = q.inversed() * qd;
-
-	/* using sin(alpha/2) scaled rotation axis as attitude error (see quaternion definition by axis angle)
-	 * also taking care of the antipodal unit quaternion ambiguity */
-	Vector3f eq = 2.f * math::signNoZero(qe(0)) * qe.imag();
-
-	/* calculate angular rates setpoint */
-	_rates_sp = eq.emult(attitude_gain);
-
-	/* Feed forward the yaw setpoint rate.
-	 * yaw_sp_move_rate is the feed forward commanded rotation around the world z-axis,
-	 * but we need to apply it in the body frame (because _rates_sp is expressed in the body frame).
-	 * Therefore we infer the world z-axis (expressed in the body frame) by taking the last column of R.transposed (== q.inversed)
-	 * and multiply it by the yaw setpoint rate (yaw_sp_move_rate).
-	 * This yields a vector representing the commanded rotatation around the world z-axis expressed in the body frame
-	 * such that it can be added to the rates setpoint.
-	 */
-	_rates_sp += q.inversed().dcm_z() * _v_att_sp.yaw_sp_move_rate;
-
-
-	/* limit rates */
-	for (int i = 0; i < 3; i++) {
-		if ((_v_control_mode.flag_control_velocity_enabled || _v_control_mode.flag_control_auto_enabled) &&
-		    !_v_control_mode.flag_control_manual_enabled) {
-			_rates_sp(i) = math::constrain(_rates_sp(i), -_auto_rate_max(i), _auto_rate_max(i));
-
-		} else {
-			_rates_sp(i) = math::constrain(_rates_sp(i), -_mc_rate_max(i), _mc_rate_max(i));
-		}
-	}
+	_rates_sp = _attitude_control.update(Quatf(_v_att.q), Quatf(_v_att_sp.q_d), _v_att_sp.yaw_sp_move_rate);
 }
 
 /*
@@ -679,9 +587,9 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	rates(1) -= _sensor_bias.gyro_y_bias;
 	rates(2) -= _sensor_bias.gyro_z_bias;
 
-	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_tpa_breakpoint_p.get(), _tpa_rate_p.get()));
-	Vector3f rates_i_scaled = _rate_i.emult(pid_attenuations(_tpa_breakpoint_i.get(), _tpa_rate_i.get()));
-	Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_tpa_breakpoint_d.get(), _tpa_rate_d.get()));
+	Vector3f rates_p_scaled = _rate_p.emult(pid_attenuations(_param_mc_tpa_break_p.get(), _param_mc_tpa_rate_p.get()));
+	Vector3f rates_i_scaled = _rate_i.emult(pid_attenuations(_param_mc_tpa_break_i.get(), _param_mc_tpa_rate_i.get()));
+	Vector3f rates_d_scaled = _rate_d.emult(pid_attenuations(_param_mc_tpa_break_d.get(), _param_mc_tpa_rate_d.get()));
 
 	/* angular rates error */
 	Vector3f rates_err = _rates_sp - rates;
@@ -757,7 +665,7 @@ MulticopterAttitudeControl::publish_rates_setpoint()
 void
 MulticopterAttitudeControl::publish_rate_controller_status()
 {
-	rate_ctrl_status_s rate_ctrl_status;
+	rate_ctrl_status_s rate_ctrl_status = {};
 	rate_ctrl_status.timestamp = hrt_absolute_time();
 	rate_ctrl_status.rollspeed = _rates_prev(0);
 	rate_ctrl_status.pitchspeed = _rates_prev(1);
@@ -780,7 +688,7 @@ MulticopterAttitudeControl::publish_actuator_controls()
 	_actuators.timestamp_sample = _sensor_gyro.timestamp;
 
 	/* scale effort by battery status */
-	if (_bat_scale_en.get() && _battery_status.scale > 0.0f) {
+	if (_param_mc_bat_scale_en.get() && _battery_status.scale > 0.0f) {
 		for (int i = 0; i < 4; i++) {
 			_actuators.control[i] *= _battery_status.scale;
 		}
@@ -808,11 +716,7 @@ MulticopterAttitudeControl::run()
 	_motor_limits_sub = orb_subscribe(ORB_ID(multirotor_motor_limits));
 	_battery_status_sub = orb_subscribe(ORB_ID(battery_status));
 
-	_gyro_count = math::min(orb_group_count(ORB_ID(sensor_gyro)), MAX_GYRO_COUNT);
-
-	if (_gyro_count == 0) {
-		_gyro_count = 1;
-	}
+	_gyro_count = math::constrain(orb_group_count(ORB_ID(sensor_gyro)), 1, MAX_GYRO_COUNT);
 
 	for (unsigned s = 0; s < _gyro_count; s++) {
 		_sensor_gyro_sub[s] = orb_subscribe_multi(ORB_ID(sensor_gyro), s);
@@ -837,6 +741,8 @@ MulticopterAttitudeControl::run()
 
 	while (!should_exit()) {
 
+		// check if the selected gyro has updated first
+		sensor_correction_poll();
 		poll_fds.fd = _sensor_gyro_sub[_selected_gyro];
 
 		/* wait for up to 100ms for data */
@@ -860,16 +766,10 @@ MulticopterAttitudeControl::run()
 		/* run controller on gyro changes */
 		if (poll_fds.revents & POLLIN) {
 			const hrt_abstime now = hrt_absolute_time();
-			float dt = (now - last_run) / 1e6f;
+
+			// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
+			const float dt = math::constrain(((now - last_run) / 1e6f), 0.0002f, 0.02f);
 			last_run = now;
-
-			/* guard against too small (< 0.2ms) and too large (> 20ms) dt's */
-			if (dt < 0.0002f) {
-				dt = 0.0002f;
-
-			} else if (dt > 0.02f) {
-				dt = 0.02f;
-			}
 
 			/* copy gyro data */
 			orb_copy(ORB_ID(sensor_gyro), _sensor_gyro_sub[_selected_gyro], &_sensor_gyro);
@@ -887,7 +787,6 @@ MulticopterAttitudeControl::run()
 			vehicle_status_poll();
 			vehicle_motor_limits_poll();
 			battery_status_poll();
-			sensor_correction_poll();
 			sensor_bias_poll();
 			vehicle_land_detected_poll();
 			landing_gear_state_poll();
@@ -900,8 +799,8 @@ MulticopterAttitudeControl::run()
 			 * even bother running the attitude controllers */
 			if (_v_control_mode.flag_control_rattitude_enabled) {
 				_v_control_mode.flag_control_attitude_enabled =
-						fabsf(_manual_control_sp.y) <= _rattitude_thres.get() &&
-						fabsf(_manual_control_sp.x) <= _rattitude_thres.get();
+						fabsf(_manual_control_sp.y) <= _param_mc_ratt_th.get() &&
+						fabsf(_manual_control_sp.x) <= _param_mc_ratt_th.get();
 			}
 
 			bool attitude_setpoint_generated = false;
@@ -927,9 +826,9 @@ MulticopterAttitudeControl::run()
 					if (manual_control_updated) {
 						/* manual rates control - ACRO mode */
 						Vector3f man_rate_sp(
-								math::superexpo(_manual_control_sp.y, _acro_expo_rp.get(), _acro_superexpo_rp.get()),
-								math::superexpo(-_manual_control_sp.x, _acro_expo_rp.get(), _acro_superexpo_rp.get()),
-								math::superexpo(_manual_control_sp.r, _acro_expo_y.get(), _acro_superexpo_y.get()));
+								math::superexpo(_manual_control_sp.y, _param_mc_acro_expo.get(), _param_mc_acro_supexpo.get()),
+								math::superexpo(-_manual_control_sp.x, _param_mc_acro_expo.get(), _param_mc_acro_supexpo.get()),
+								math::superexpo(_manual_control_sp.r, _param_mc_acro_expo_y.get(), _param_mc_acro_supexpoy.get()));
 						_rates_sp = man_rate_sp.emult(_acro_rate_max);
 						_thrust_sp = _manual_control_sp.z;
 						publish_rates_setpoint();
@@ -973,7 +872,7 @@ MulticopterAttitudeControl::run()
 					_loop_update_rate_hz = _loop_update_rate_hz * 0.5f + loop_update_rate * 0.5f;
 					dt_accumulator = 0;
 					loop_counter = 0;
-					_lp_filters_d.set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());
+					_lp_filters_d.set_cutoff_frequency(_loop_update_rate_hz, _param_mc_dterm_cutoff.get());
 				}
 			}
 

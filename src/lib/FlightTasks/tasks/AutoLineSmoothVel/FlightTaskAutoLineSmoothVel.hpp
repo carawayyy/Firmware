@@ -55,20 +55,20 @@ public:
 protected:
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskAutoMapper2,
-					(ParamFloat<px4::params::MIS_YAW_ERR>) MIS_YAW_ERR, // yaw-error threshold
-					(ParamFloat<px4::params::MPC_ACC_HOR>) MPC_ACC_HOR, // acceleration in flight
-					(ParamFloat<px4::params::MPC_ACC_UP_MAX>) MPC_ACC_UP_MAX,
-					(ParamFloat<px4::params::MPC_ACC_DOWN_MAX>) MPC_ACC_DOWN_MAX,
-					(ParamFloat<px4::params::MPC_ACC_HOR_MAX>) MPC_ACC_HOR_MAX,
-					(ParamFloat<px4::params::MPC_JERK_MIN>) MPC_JERK_MIN,
-					(ParamFloat<px4::params::MPC_XY_TRAJ_P>) MPC_XY_TRAJ_P,
-					(ParamFloat<px4::params::MPC_Z_TRAJ_P>) MPC_Z_TRAJ_P
+					(ParamFloat<px4::params::MIS_YAW_ERR>) _param_mis_yaw_err, // yaw-error threshold
+					(ParamFloat<px4::params::MPC_ACC_HOR>) _param_mpc_acc_hor, // acceleration in flight
+					(ParamFloat<px4::params::MPC_ACC_UP_MAX>) _param_mpc_acc_up_max,
+					(ParamFloat<px4::params::MPC_ACC_DOWN_MAX>) _param_mpc_acc_down_max,
+					(ParamFloat<px4::params::MPC_ACC_HOR_MAX>) _param_mpc_acc_hor_max,
+					(ParamFloat<px4::params::MPC_JERK_MIN>) _param_mpc_jerk_min,
+					(ParamFloat<px4::params::MPC_XY_TRAJ_P>) _param_mpc_xy_traj_p,
+					(ParamFloat<px4::params::MPC_Z_TRAJ_P>) _param_mpc_z_traj_p
 				       );
 
 	void _generateSetpoints() override; /**< Generate setpoints along line. */
-	void _setDefaultConstraints() override;
 
-	inline float constrain_one_side(float val, float constrain);
+	inline float _constrainOneSide(float val, float constrain);
+	void _checkEkfResetCounters(); /**< Reset the trajectories when the ekf resets velocity or position */
 	void _generateHeading();
 	bool _generateHeadingAlongTraj(); /**< Generates heading along trajectory. */
 	void _updateTrajConstraints();
@@ -76,5 +76,12 @@ protected:
 	void _generateTrajectory();
 	VelocitySmoothing _trajectory[3]; ///< Trajectories in x, y and z directions
 	float _yaw_sp_prev;
-	uint8_t _reset_counter{0}; /**< counter for estimator resets in xy-direction */
+
+	/* counters for estimator local position resets */
+	struct {
+		uint8_t xy;
+		uint8_t vxy;
+		uint8_t z;
+		uint8_t vz;
+	} _reset_counters{0, 0, 0, 0};
 };

@@ -82,6 +82,7 @@ MulticopterLandDetector::MulticopterLandDetector()
 	_paramHandle.freefall_trigger_time = param_find("LNDMC_FFALL_TTRI");
 	_paramHandle.altitude_max = param_find("LNDMC_ALT_MAX");
 	_paramHandle.landSpeed = param_find("MPC_LAND_SPEED");
+	_paramHandle.low_thrust_threshold = param_find("LNDMC_LOW_T_THR");
 
 	// Use Trigger time when transitioning from in-air (false) to landed (true) / ground contact (true).
 	_landed_hysteresis.set_hysteresis_time_from(false, LAND_DETECTOR_TRIGGER_TIME_US);
@@ -126,6 +127,8 @@ void MulticopterLandDetector::_update_params()
 	_freefall_hysteresis.set_hysteresis_time_from(false, (hrt_abstime)(1e6f * _params.freefall_trigger_time));
 	param_get(_paramHandle.altitude_max, &_params.altitude_max);
 	param_get(_paramHandle.landSpeed, &_params.landSpeed);
+	param_get(_paramHandle.low_thrust_threshold, &_params.low_thrust_threshold);
+
 }
 
 
@@ -179,17 +182,17 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 	}
 
 	// Check if we are moving horizontally.
-	bool horizontalMovement = sqrtf(_vehicleLocalPosition.vx * _vehicleLocalPosition.vx
-					+ _vehicleLocalPosition.vy * _vehicleLocalPosition.vy) > _params.maxVelocity;
+	_horizontal_movement = sqrtf(_vehicleLocalPosition.vx * _vehicleLocalPosition.vx
+				     + _vehicleLocalPosition.vy * _vehicleLocalPosition.vy) > _params.maxVelocity;
 
 	// if we have a valid velocity setpoint and the vehicle is demanded to go down but no vertical movement present,
 	// we then can assume that the vehicle hit ground
-	bool in_descend = _is_climb_rate_enabled()
-			  && (_vehicleLocalPositionSetpoint.vz >= land_speed_threshold);
-	bool hit_ground = in_descend && !verticalMovement;
+	_in_descend = _is_climb_rate_enabled()
+		      && (_vehicleLocalPositionSetpoint.vz >= land_speed_threshold);
+	bool hit_ground = _in_descend && !verticalMovement;
 
 	// TODO: we need an accelerometer based check for vertical movement for flying without GPS
-	if ((_has_low_thrust() || hit_ground) && (!horizontalMovement || !_has_position_lock())
+	if ((_has_low_thrust() || hit_ground) && (!_horizontal_movement || !_has_position_lock())
 	    && (!verticalMovement || !_has_altitude_lock())) {
 		return true;
 	}
@@ -314,7 +317,8 @@ bool MulticopterLandDetector::_is_climb_rate_enabled()
 bool MulticopterLandDetector::_has_low_thrust()
 {
 	// 30% of throttle range between min and hover
-	float sys_min_throttle = _params.minThrottle + (_params.hoverThrottle - _params.minThrottle) * 0.3f;
+	float sys_min_throttle = _params.minThrottle + (_params.hoverThrottle - _params.minThrottle) *
+				 _params.low_thrust_threshold;
 
 	// Check if thrust output is less than the minimum auto throttle param.
 	return _actuators.control[actuator_controls_s::INDEX_THROTTLE] <= sys_min_throttle;
@@ -332,6 +336,16 @@ bool MulticopterLandDetector::_has_minimal_thrust()
 
 	// Check if thrust output is less than the minimum auto throttle param.
 	return _actuators.control[actuator_controls_s::INDEX_THROTTLE] <= sys_min_throttle;
+}
+
+bool MulticopterLandDetector::_get_ground_effect_state()
+{
+	if (_in_descend && !_horizontal_movement) {
+		return true;
+
+	} else {
+		return false;
+	}
 }
 
 } // namespace land_detector

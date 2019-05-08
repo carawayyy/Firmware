@@ -320,8 +320,8 @@ PARAM_DEFINE_FLOAT(MPC_XY_VEL_MAX, 12.0f);
  * Limits maximum tilt in AUTO and POSCTRL modes during flight.
  *
  * @unit deg
- * @min 0.0
- * @max 90.0
+ * @min 20.0
+ * @max 180.0
  * @decimal 1
  * @group Multicopter Position Control
  */
@@ -333,8 +333,8 @@ PARAM_DEFINE_FLOAT(MPC_TILTMAX_AIR, 45.0f);
  * Limits maximum tilt angle on landing.
  *
  * @unit deg
- * @min 0.0
- * @max 180.0
+ * @min 10.0
+ * @max 90.0
  * @decimal 1
  * @group Multicopter Position Control
  */
@@ -616,6 +616,21 @@ PARAM_DEFINE_FLOAT(MPC_Z_MAN_EXPO, 0.0f);
 PARAM_DEFINE_FLOAT(MPC_YAW_EXPO, 0.0f);
 
 /**
+ * Max yaw rate in auto mode
+ *
+ * Limit the rate of change of the yaw setpoint in autonomous mode
+ * to avoid large control output and mixer saturation.
+ *
+ * @unit deg/s
+ * @min 0.0
+ * @max 360.0
+ * @decimal 1
+ * @increment 5
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MPC_YAWRAUTO_MAX, 45.0f);
+
+/**
  * Altitude for 1. step of slow landing (descend)
  *
  * Below this altitude descending velocity gets limited
@@ -705,16 +720,7 @@ PARAM_DEFINE_INT32(MPC_AUTO_MODE, 1);
 PARAM_DEFINE_FLOAT(MPC_SPOOLUP_TIME, 0.0f);
 
 /**
- * Flag to enable obstacle avoidance
- * Temporary Parameter to enable interface testing
- *
- * @boolean
- * @group Multicopter Position Control
- */
-PARAM_DEFINE_INT32(MPC_OBS_AVOID, 0);
-
-/**
- * Yaw mode
+ * Yaw mode.
  *
  * Specifies the heading in Auto.
  *
@@ -727,4 +733,3 @@ PARAM_DEFINE_INT32(MPC_OBS_AVOID, 0);
  * @group Mission
  */
 PARAM_DEFINE_INT32(MPC_YAW_MODE, 0);
-

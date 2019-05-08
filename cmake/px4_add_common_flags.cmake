@@ -66,6 +66,7 @@ function(px4_add_common_flags)
 		-Werror
 
 		-Warray-bounds
+		-Wcast-align
 		-Wdisabled-optimization
 		-Wdouble-promotion
 		-Wfatal-errors
@@ -78,8 +79,6 @@ function(px4_add_common_flags)
 		-Wuninitialized
 		-Wunknown-pragmas
 		-Wunused-variable
-
-		#-Wcast-align # TODO: fix and enable
 
 		# disabled warnings
 		-Wno-implicit-fallthrough # set appropriate level and update
@@ -99,7 +98,6 @@ function(px4_add_common_flags)
 			add_compile_options(
 				-Qunused-arguments
 
-				-Wno-address-of-packed-member # TODO: fix and enable (mavlink, etc)
 				-Wno-unknown-warning-option
 				-Wno-unused-const-variable
 				-Wno-varargs
@@ -111,10 +109,6 @@ function(px4_add_common_flags)
 		if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.9)
 			# force color for gcc > 4.9
 			add_compile_options(-fdiagnostics-color=always)
-		endif()
-
-		if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 9)
-			add_compile_options(-Wno-address-of-packed-member) # TODO: fix and enable (mavlink, etc)
 		endif()
 
 		add_compile_options(

@@ -44,6 +44,8 @@
 #include "health_flag_helper.h"
 #include "rc_check.h"
 
+#include <math.h>
+
 #include <parameters/param.h>
 #include <systemlib/mavlink_log.h>
 #include <uORB/Subscription.hpp>
@@ -383,20 +385,6 @@ static bool airspeedCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &statu
 	int fd_airspeed = orb_subscribe(ORB_ID(airspeed));
 	airspeed_s airspeed = {};
 
-	int fd_diffpres = orb_subscribe(ORB_ID(differential_pressure));
-	differential_pressure_s differential_pressure = {};
-
-	if ((orb_copy(ORB_ID(differential_pressure), fd_diffpres, &differential_pressure) != PX4_OK) ||
-	    (hrt_elapsed_time(&differential_pressure.timestamp) > 1_s)) {
-		if (report_fail && !optional) {
-			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: Airspeed Sensor missing");
-		}
-
-		present = false;
-		success = false;
-		goto out;
-	}
-
 	if ((orb_copy(ORB_ID(airspeed), fd_airspeed, &airspeed) != PX4_OK) ||
 	    (hrt_elapsed_time(&airspeed.timestamp) > 1_s)) {
 		if (report_fail && !optional) {
@@ -425,11 +413,11 @@ static bool airspeedCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &statu
 	}
 
 	/**
-	 * Check if differential pressure is off by more than 15Pa which equals ~5m/s when measuring no airspeed.
+	 * Check if airspeed is higher than 4m/s (accepted max) while the vehicle is landed / not flying
 	 * Negative and positive offsets are considered. Do not check anymore while arming because pitot cover
 	 * might have been removed.
 	 */
-	if (fabsf(differential_pressure.differential_pressure_filtered_pa) > 15.0f && !prearm) {
+	if (fabsf(airspeed.indicated_airspeed_m_s) > 4.0f && !prearm) {
 		if (report_fail) {
 			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: check Airspeed Cal or Pitot");
 		}
@@ -443,7 +431,6 @@ out:
 	set_health_flags(subsystem_info_s::SUBSYSTEM_TYPE_DIFFPRESSURE, present, !optional, success, status);
 
 	orb_unsubscribe(fd_airspeed);
-	orb_unsubscribe(fd_diffpres);
 
 	return success;
 }
@@ -938,8 +925,15 @@ bool preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status,
 
 	/* ---- Navigation EKF ---- */
 	// only check EKF2 data if EKF2 is selected as the estimator and GNSS checking is enabled
-	int32_t estimator_type;
-	param_get(param_find("SYS_MC_EST_GROUP"), &estimator_type);
+	int32_t estimator_type = -1;
+
+	if (status.is_rotary_wing && !status.is_vtol) {
+		param_get(param_find("SYS_MC_EST_GROUP"), &estimator_type);
+
+	} else {
+		// EKF2 is currently the only supported option for FW & VTOL
+		estimator_type = 2;
+	}
 
 	if (estimator_type == 2) {
 		// don't report ekf failures for the first 10 seconds to allow time for the filter to start
